@@ -2,7 +2,7 @@
 
 A web app that shows how a **queue** works, using a printer as the real-world example.
 
-**Live demo:** _paste your GitHub Pages link here_
+
 
 ## DSA concept: Queue (FIFO)
 
