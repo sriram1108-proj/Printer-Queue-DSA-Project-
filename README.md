@@ -2,6 +2,7 @@
 
 A web app that shows how a **queue** works, using a printer as the real-world example.
 
+https://sriram1108-proj.github.io/Printer-Queue-DSA-Project-/
 
 
 ## DSA concept: Queue (FIFO)
