@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Print Queue – DSA Project</title>
+<style>
+:root{--bg:#e8edf1;--ink:#1b2733;--muted:#5d6b78;--paper:#fff;--line:#c5ced6;--accent:#0b6bcb;--ok:#1a7f4b;--warn:#b3361f}
+@media (prefers-color-scheme:dark){:root{--bg:#141b22;--ink:#e6ecf1;--muted:#93a1ae;--paper:#1f2832;--line:#33404c;--accent:#4aa3ff;--ok:#4cc38a;--warn:#ff7b63}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 "Trebuchet MS",system-ui,sans-serif;padding:20px}
+main{max-width:860px;margin:0 auto}
+h1{font-size:1.8rem;margin:0 0 4px}
+.sub{color:var(--muted);margin:0 0 20px}
+.panel{background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:16px;margin-bottom:16px}
+h2{font-size:1.05rem;margin:0 0 12px}
+form{display:flex;gap:10px;flex-wrap:wrap;align-items:end}
+label{display:flex;flex-direction:column;font-size:.85rem;color:var(--muted);gap:4px}
+input{font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink)}
+input[name=name]{min-width:220px}input[name=pages]{width:90px}
+button{font:inherit;padding:9px 16px;border-radius:6px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer}
+button.alt{background:transparent;color:var(--accent)}
+button:disabled{opacity:.45;cursor:not-allowed}
+button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.stats{display:flex;gap:24px;flex-wrap:wrap;margin-bottom:12px;color:var(--muted);font-size:.9rem}
+.stats b{color:var(--ink)}
+.line{display:flex;align-items:stretch;gap:0;overflow-x:auto;padding:6px 2px 10px;min-height:110px}
+.node{display:flex;align-items:center}
+.job{min-width:130px;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:10px;position:relative}
+.job .n{font-weight:700;word-break:break-word}
+.job .p{color:var(--muted);font-size:.85rem}
+.tag{position:absolute;top:-9px;left:8px;font-size:.72rem;background:var(--accent);color:#fff;border-radius:4px;padding:0 6px}
+.tag.rear{left:auto;right:8px;background:var(--ok)}
+.arrow{padding:0 6px;color:var(--muted)}
+.job.front{border-color:var(--accent);border-width:2px}
+.empty{color:var(--muted);align-self:center}
+.printer{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.bar{flex:1;min-width:180px;height:14px;background:var(--bg);border:1px solid var(--line);border-radius:7px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--ok)}
+#log{margin:0;padding:0;list-style:none;max-height:180px;overflow:auto;font-family:Consolas,monospace;font-size:.85rem}
+#log li{padding:3px 0;border-bottom:1px dashed var(--line)}
+#msg{color:var(--warn);min-height:1.3em;margin:8px 0 0;font-size:.9rem}
+@media (prefers-reduced-motion:no-preference){.bar i{transition:width .25s linear}}
+</style>
+</head>
+<body>
+<main>
+<h1>Printer job queue</h1>
+<p class="sub">Jobs print in the order they arrive (FIFO). Built on a linked-list queue.</p>
+
+<section class="panel">
+<h2>Add a print job</h2>
+<form id="f">
+<label>Document name<input name="name" required maxlength="40" placeholder="Lab report.pdf"></label>
+<label>Pages<input name="pages" type="number" min="1" max="200" value="5" required></label>
+<button type="submit">Add to queue</button>
+</form>
+<p id="msg" role="alert"></p>
+</section>
+
+<section class="panel">
+<h2>Printer</h2>
+<div class="printer">
+<div id="now" style="min-width:200px">Idle</div>
+<div class="bar" aria-hidden="true"><i id="fill"></i></div>
+<button id="next">Print next job</button>
+<button id="peek" class="alt">Peek</button>
+<button id="clear" class="alt">Cancel all</button>
+</div>
+</section>
+
+<section class="panel">
+<h2>Waiting jobs</h2>
+<div class="stats">
+<span>Size: <b id="size">0</b></span>
+<span>Next up: <b id="front">–</b></span>
+<span>Last in line: <b id="rear">–</b></span>
+<span>Printed: <b id="done">0</b></span>
+</div>
+<div class="line" id="line"></div>
+</section>
+
+<section class="panel">
+<h2>Operation log</h2>
+<ul id="log"></ul>
+</section>
+</main>
+
+<script>
+// ---- Queue implemented with a singly linked list ----
+class Node { constructor(data){ this.data = data; this.next = null; } }
+class Queue {
+  constructor(){ this.head = null; this.tail = null; this.size = 0; }
+  enqueue(data){                    // O(1): add at the tail
+    const n = new Node(data);
+    if (this.tail) this.tail.next = n; else this.head = n;
+    this.tail = n; this.size++;
+  }
+  dequeue(){                        // O(1): remove from the head
+    if (!this.head) return null;
+    const d = this.head.data;
+    this.head = this.head.next;
+    if (!this.head) this.tail = null;
+    this.size--; return d;
+  }
+  peek(){ return this.head ? this.head.data : null; }
+  clear(){ this.head = this.tail = null; this.size = 0; }
+  toArray(){ const a = []; for (let c = this.head; c; c = c.next) a.push(c.data); return a; }
+}
+
+// ---- App ----
+const q = new Queue();
+let nextId = 1, printed = 0, busy = false;
+const $ = id => document.getElementById(id);
+
+function log(text){
+  const li = document.createElement('li');
+  li.textContent = new Date().toLocaleTimeString() + '  ' + text;
+  $('log').prepend(li);
+}
+
+function render(){
+  const jobs = q.toArray();
+  $('size').textContent = q.size;
+  $('front').textContent = q.head ? q.head.data.name : '–';
+  $('rear').textContent = q.tail ? q.tail.data.name : '–';
+  $('done').textContent = printed;
+  $('next').disabled = busy || q.size === 0;
+  $('peek').disabled = q.size === 0;
+  $('clear').disabled = busy || q.size === 0;
+  const line = $('line');
+  line.innerHTML = '';
+  if (!jobs.length){ line.innerHTML = '<span class="empty">The queue is empty. Add a job above.</span>'; return; }
+  jobs.forEach((j, i) => {
+    const wrap = document.createElement('div'); wrap.className = 'node';
+    const card = document.createElement('div'); card.className = 'job' + (i === 0 ? ' front' : '');
+    const n = document.createElement('div'); n.className = 'n'; n.textContent = j.name;
+    const p = document.createElement('div'); p.className = 'p'; p.textContent = j.pages + (j.pages === 1 ? ' page' : ' pages');
+    card.append(n, p);
+    if (i === 0){ const t = document.createElement('span'); t.className = 'tag'; t.textContent = 'front'; card.append(t); }
+    if (i === jobs.length - 1){ const t = document.createElement('span'); t.className = 'tag rear'; t.textContent = 'rear'; card.append(t); }
+    wrap.append(card);
+    if (i < jobs.length - 1){ const a = document.createElement('span'); a.className = 'arrow'; a.textContent = '→'; wrap.append(a); }
+    line.append(wrap);
+  });
+}
+
+$('f').addEventListener('submit', e => {
+  e.preventDefault();
+  const name = e.target.name.value.trim();
+  const pages = parseInt(e.target.pages.value, 10);
+  if (!name || !(pages > 0)){ $('msg').textContent = 'Enter a document name and at least 1 page.'; return; }
+  $('msg').textContent = '';
+  q.enqueue({ id: nextId++, name, pages });
+  log(`enqueue "${name}" (${pages} pages)`);
+  e.target.name.value = ''; e.target.name.focus();
+  render();
+});
+
+$('peek').addEventListener('click', () => {
+  const j = q.peek();
+  $('msg').textContent = '';
+  if (j) log(`peek → "${j.name}" is next (queue unchanged)`);
+});
+
+$('clear').addEventListener('click', () => {
+  const n = q.size; q.clear();
+  log(`cleared ${n} waiting job${n === 1 ? '' : 's'}`);
+  render();
+});
+
+$('next').addEventListener('click', () => {
+  const job = q.dequeue();
+  if (!job) return;
+  busy = true; log(`dequeue "${job.name}" → printing`);
+  render();
+  let done = 0;
+  $('now').textContent = `Printing "${job.name}"  0/${job.pages}`;
+  $('fill').style.width = '0%';
+  const step = Math.max(80, Math.min(400, 3000 / job.pages)); // keeps long jobs under ~3s
+  const timer = setInterval(() => {
+    done++;
+    $('fill').style.width = (done / job.pages * 100) + '%';
+    $('now').textContent = `Printing "${job.name}"  ${done}/${job.pages}`;
+    if (done >= job.pages){
+      clearInterval(timer);
+      printed++; busy = false;
+      $('now').textContent = `Finished "${job.name}"`;
+      log(`finished "${job.name}"`);
+      render();
+    }
+  }, step);
+});
+
+render();
+</script>
+</body>
+</html>
